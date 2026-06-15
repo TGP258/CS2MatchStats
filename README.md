@@ -67,7 +67,7 @@ dotnet build -c Release
 ```
 
 编译成功后，DLL 位于：`bin/Release/net8.0/CS2MatchStats.dll`
-
+也可使用已编译好的插件[此处下载](https://github.com/user-attachments/files/28956250/CS2MatchStats.zip)
 ### 步骤 2：安装插件到 CS2-Bot-Improver
 
 将编译好的整个 `CS2MatchStats` 文件夹复制到 CS2-Bot-Improver 项目的 plugins 目录下：
