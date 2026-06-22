@@ -31,10 +31,8 @@ public class CS2MatchStatsPlugin : BasePlugin
     // 交换击杀：记录每回合死亡信息 (受害者ID -> (凶手ID, 死亡时间))
     private readonly ConcurrentDictionary<long, (long KillerId, float DeathTime)> _playerDeathInfo = new();
 
-    // ============================================================
     // 换边检测锚点：每回合结束时记录所有玩家的 TeamKey 快照
     // 用于在下一回合开始时比较"玩家的队是否变了"来检测换边
-    // ============================================================
     // Key=玩家UniqueId, Value=该玩家在上回合结束时的队伍
     private readonly Dictionary<long, string> _previousRoundTeamSnapshot = new();
 
@@ -71,12 +69,9 @@ public class CS2MatchStatsPlugin : BasePlugin
         Server.PrintToConsole($"[CS2MatchStats] Plugin loaded v{ModuleVersion}");
     }
 
-    // ============================================================
-    // 核心：稳定玩家唯一ID获取
-    // 策略：优先使用 UserId (所有在线玩家都有, 对 bot 和人类都稳定)
+    // 稳定玩家唯一ID获取
+    // 优先使用 UserId (所有在线玩家都有, 且 >= 0), +1 防止 UserId=0 被当成无效
     // 如果 UserId 不可用, 回退到 Slot + 1 (Slot 范围 0-63, 单服务器唯一)
-    // 不使用 IsBot 字段 (伪装插件会篡改它)
-    // ============================================================
     private long GetPlayerUniqueId(CCSPlayerController player)
     {
         if (player == null || !player.IsValid) return 0;
@@ -160,9 +155,8 @@ public class CS2MatchStatsPlugin : BasePlugin
         }
     }
 
-    // ============================================================
-    // 注册/更新玩家: 统一入口, 所有玩家一视同仁
-    // ============================================================
+
+    // 注册/更新玩家: 统一入口
     private PlayerData? RegisterPlayer(CCSPlayerController player)
     {
         if (player == null || !player.IsValid) return null;
@@ -192,7 +186,7 @@ public class CS2MatchStatsPlugin : BasePlugin
         {
             UniqueId = uniqueId,
             Name = name,
-            IsBot = false, // 不再依赖 IsBot 字段, 统一 false (由外部显示决定)
+            IsBot = false, // 统一 false (由外部显示决定)
             SteamId = steamId,
             // 首次注册时: 队伍初始值 = 当前队伍
             TeamKey = teamKey,
@@ -205,9 +199,8 @@ public class CS2MatchStatsPlugin : BasePlugin
         return newPlayer;
     }
 
-    // ============================================================
+
     // Map 事件: 初始化/保存
-    // ============================================================
     private void OnMapStart(string mapName)
     {
         _currentMatch = new MatchData
@@ -242,7 +235,7 @@ public class CS2MatchStatsPlugin : BasePlugin
             return;
         }
 
-        // 调试: 打印所有已记录玩家
+        //  打印所有已记录玩家
         Server.PrintToConsole("[CS2MatchStats] ---- ALL PLAYERS ----");
         foreach (var kvp in _allPlayers)
         {
@@ -250,9 +243,9 @@ public class CS2MatchStatsPlugin : BasePlugin
             Server.PrintToConsole($"  [InitTeam={p.InitialTeam}, CurrentTeam={p.TeamKey}] {p.Name} (ID={kvp.Key}) K={p.Kills} D={p.Deaths} A={p.Assists} MVP={p.MVPs} Survived={p.RoundsSurvived}");
         }
 
-        // 将玩家分配到队伍 (使用 InitialTeam 而非 TeamKey)
-        // 原因: 玩家在 12 局后会被换边, TeamKey 会变化
-        // 但前端需要按"他本场在哪一队"来分组, 即按 InitialTeam
+        // 将玩家分配到队伍 (使用 InitialTeam)
+        // 玩家在 12 局后会被换边, TeamKey 会变化
+        // 前端按 InitialTeam
         foreach (var player in _allPlayers.Values)
         {
             string teamToUse = !string.IsNullOrEmpty(player.InitialTeam) ? player.InitialTeam : player.TeamKey;
@@ -269,9 +262,8 @@ public class CS2MatchStatsPlugin : BasePlugin
         SaveMatch();
     }
 
-    // ============================================================
+
     // Round 事件: 开始/结束
-    // ============================================================
     private HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
     {
         _currentRound++;
@@ -289,18 +281,15 @@ public class CS2MatchStatsPlugin : BasePlugin
             RegisterPlayer(player); // 确保注册并设置 InitialTeam
         }
 
-        // ============================================================
+
         // 换边检测: 锚点法 (玩家队伍变化) + 规则验证
-        //
         // 锚点: 如果上一回合的玩家在本回合的队伍变了 -> 换边
         // 规则: 已知换边回合 = 13, 28, 34, 40
-        //
         // 检测逻辑:
         // 1. 用锚点检测 (Primary): 比较 _previousRoundTeamSnapshot vs currentSnapshot
         //    若任一玩家 team 变化 -> sideSwapped = true
         // 2. 用规则验证 (Secondary): 若锚点说换边了但回合号不在已知换边点 -> 警告
         // 3. 若锚点没检测到但回合号是已知换边点 -> 说明锚点漏了 (用规则补充, 打印警告)
-        // ============================================================
         bool sideSwappedByAnchor = false;
         bool sideSwappedByRule = IsSwapRound(_currentRound);
 
@@ -400,10 +389,8 @@ public class CS2MatchStatsPlugin : BasePlugin
         round.Winner = winner;
         round.Reason = @event.Reason;
 
-        // ============================================================
         // 比分计算: 使用游戏 Winner 记录到 round.Winner
         // 前端会根据 SideSwapped 和 InitialTeam 重新归类比分
-        // ============================================================
         if (_currentMatch.Teams.ContainsKey(winner))
         {
             _currentMatch.Teams[winner].Score++;
@@ -415,9 +402,7 @@ public class CS2MatchStatsPlugin : BasePlugin
         // 计算 MVP
         CalculateRoundMVP(round);
 
-        // ============================================================
         // 残局 (Clutch) 判定: 胜利队存活玩家 <= 2 时, 该队最高击杀者 获得 1 次 clutch
-        // ============================================================
         int ctTotal = 0, tTotal = 0, ctAlive = 0, tAlive = 0;
         // 使用本回合开始时的队伍快照 (round.PlayerTeamSnapshot)
         var roundTeam = round.PlayerTeamSnapshot;
@@ -463,10 +448,8 @@ public class CS2MatchStatsPlugin : BasePlugin
         // 清空死亡信息
         _playerDeathInfo.Clear();
 
-        // ============================================================
         // 更新换边检测锚点: 记录本回合结束时所有玩家的 TeamKey
         // 这样下一回合 OnRoundStart 时可以比较"玩家的队是否变了"
-        // ============================================================
         _previousRoundTeamSnapshot.Clear();
         foreach (var player in Utilities.GetPlayers())
         {
@@ -588,9 +571,7 @@ public class CS2MatchStatsPlugin : BasePlugin
         }
     }
 
-    // ============================================================
-    // PlayerDeath: 核心统计
-    // ============================================================
+    // PlayerDeath统计
     private HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
     {
         if (_currentMatch.Rounds.Count == 0) return HookResult.Continue;
@@ -604,7 +585,7 @@ public class CS2MatchStatsPlugin : BasePlugin
         string attackerName = attacker != null && attacker.IsValid ? GetPlayerName(attacker) : "World";
         string assisterName = assister != null && assister.IsValid ? GetPlayerName(assister) : "";
 
-        // 1. 记录死亡事件
+        // 记录死亡事件
         round.Events.Add(new RoundEvent
         {
             Type = "death",
@@ -616,7 +597,7 @@ public class CS2MatchStatsPlugin : BasePlugin
             Headshot = @event.Headshot
         });
 
-        // 2. 受害者: 死亡数 +1 (所有玩家都计入, 没有排除)
+        // 受害者死亡数 +1
         if (victim != null && victim.IsValid)
         {
             var victimData = RegisterPlayer(victim);
@@ -638,7 +619,7 @@ public class CS2MatchStatsPlugin : BasePlugin
             }
         }
 
-        // 3. 攻击者: 击杀数 +1 (排除自杀/世界伤害)
+        // 攻击者击杀数 +1 (排除自杀/世界伤害)
         bool isSuicide = (attacker == null || !attacker.IsValid || attacker == victim);
         if (!isSuicide)
         {
@@ -679,7 +660,7 @@ public class CS2MatchStatsPlugin : BasePlugin
             }
         }
 
-        // 4. 助攻: 优先游戏提供的 assister
+        // 助攻
         if (assister != null && assister.IsValid && assister != attacker && assister != victim)
         {
             var assisterData = RegisterPlayer(assister);
@@ -700,7 +681,7 @@ public class CS2MatchStatsPlugin : BasePlugin
         }
         else if (!isSuicide && victim != null && victim.IsValid)
         {
-            // 回退: 用伤害追踪计算助攻
+            // 用伤害追踪计算助攻
             long victimId = GetPlayerUniqueId(victim);
             if (victimId != 0 && _damageDealers.TryGetValue(victimId, out var dealers))
             {
@@ -723,7 +704,7 @@ public class CS2MatchStatsPlugin : BasePlugin
             }
         }
 
-        // 5. 清除该受害者的伤害记录
+        // 清除该受害者的伤害记录
         if (victim != null && victim.IsValid)
         {
             long victimId = GetPlayerUniqueId(victim);
@@ -737,9 +718,7 @@ public class CS2MatchStatsPlugin : BasePlugin
         return HookResult.Continue;
     }
 
-    // ============================================================
-    // PlayerHurt: 伤害统计 + 助攻追踪
-    // ============================================================
+    // PlayerHurt伤害统计 + 助攻追踪
     private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
     {
         if (_currentMatch.Rounds.Count == 0) return HookResult.Continue;
@@ -789,9 +768,8 @@ public class CS2MatchStatsPlugin : BasePlugin
         return HookResult.Continue;
     }
 
-    // ============================================================
+
     // 炸弹事件
-    // ============================================================
     private HookResult OnBombPlanted(EventBombPlanted @event, GameEventInfo info)
     {
         if (_currentMatch.Rounds.Count == 0) return HookResult.Continue;
@@ -826,9 +804,7 @@ public class CS2MatchStatsPlugin : BasePlugin
         return HookResult.Continue;
     }
 
-    // ============================================================
     // 玩家断开: 如果所有玩家都离开, 触发一次保存
-    // ============================================================
     private HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
     {
         var player = @event.Userid;
@@ -849,7 +825,7 @@ public class CS2MatchStatsPlugin : BasePlugin
                     remaining++;
                 }
             }
-            // 不再检查 IsBot, 只看有没有活跃玩家
+            // 不检查 IsBot, 只看有没有活跃玩家
             if (remaining == 0)
             {
                 Server.PrintToConsole("[CS2MatchStats] No active players remain, saving match...");
@@ -864,9 +840,7 @@ public class CS2MatchStatsPlugin : BasePlugin
         return HookResult.Continue;
     }
 
-    // ============================================================
-    // Rating 计算
-    // ============================================================
+    // Rating 计算，Rating2.0
     private void CalculateRatings()
     {
         int totalRounds = _currentMatch.Rounds.Count;
@@ -900,9 +874,7 @@ public class CS2MatchStatsPlugin : BasePlugin
         }
     }
 
-    // ============================================================
     // 保存/命令
-    // ============================================================
     private void SaveMatch()
     {
         if (_currentMatch.Rounds.Count == 0) return;
@@ -958,9 +930,7 @@ public class CS2MatchStatsPlugin : BasePlugin
     }
 }
 
-// ============================================================
 // 数据模型 (JSON 输出结构)
-// ============================================================
 public class MatchData
 {
     public string MapName { get; set; } = "";

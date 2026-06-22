@@ -408,11 +408,6 @@
 </div>
 
 <script>
-/* ============================================================
-   CS2 Match Stats - 前端渲染
-   深色大表格风格 + 旧 JSON 数据兼容层
-   ============================================================ */
-
 const state = {
   lang: 'zh',
   currentMatch: null,
@@ -420,7 +415,7 @@ const state = {
   matches: [] // 从 /api/matches 获取的摘要列表 (含 filename)
 };
 
-// 地图英文名 -> 中文名 映射
+// 地图英文名中文名 映射
 const MAP_NAMES = {
   'de_dust2':       '炙热沙城II',
   'de_mirage':      '荒漠迷城',
@@ -522,9 +517,9 @@ const i18n = {
 
 function _(key) { return i18n[state.lang][key] || key; }
 
-/* ============================================================
-   渲染入口
-   ============================================================ */
+
+// 渲染入口
+
 function render() {
   const app = document.getElementById('app');
   app.innerHTML = renderHeader();
@@ -560,9 +555,9 @@ function renderFooter() {
   return `<div class="footer-info">💡 ${_('note')}</div>`;
 }
 
-/* ============================================================
-   对局列表（摘要数据）
-   ============================================================ */
+
+// 对局列表（摘要数据）
+
 function renderMatchList() {
   if (!state.matches || state.matches.length === 0) {
     return `<div class="loading">${_('noMatches')}<br/><span style="font-size:12px; margin-top:8px; display:block;">${_('noMatchesDesc')}</span></div>`;
@@ -591,13 +586,13 @@ function renderMatchList() {
   }).join('');
 }
 
-/* ============================================================
-   对局详情（完整 JSON）
-   ============================================================ */
+
+// 对局详情（完整 JSON）
+
 function renderMatchDetail(match) {
   const rounds = match.Rounds || [];
 
-  // --- 玩家按 InitialTeam 分组（兼容旧数据）---
+  // 玩家按 InitialTeam 分组
   const ctPlayers = [];
   const tPlayers = [];
   const allPlayers = Object.values(match.Teams?.CT?.Players || {})
@@ -618,7 +613,7 @@ function renderMatchDetail(match) {
     else if (team === 'T') tPlayers.push(p);
   }
 
-  // --- 找换边点：优先插件锚点 SideSwapped，否则用回合号规则 ---
+  // 找换边点：优先插件锚点 SideSwapped，否则用回合号规则
   let firstSwapIndex = -1;
   let swapByRule = false;
   for (let i = 0; i < rounds.length; i++) {
@@ -632,7 +627,7 @@ function renderMatchDetail(match) {
     }
   }
 
-  // --- 比分：按换边点把 Winner 映射回初始队 ---
+  //比分，按换边点把 Winner 映射回初始队
   let ctScore = 0, tScore = 0;
   for (let i = 0; i < rounds.length; i++) {
     const w = rounds[i].Winner;
@@ -642,7 +637,7 @@ function renderMatchDetail(match) {
     if (initialSide === 'CT') ctScore++; else tScore++;
   }
 
-  // --- 单玩家行 ---
+  // 玩家行-
   const renderPlayerRow = (p) => {
     const hs = p.Kills > 0 ? Math.round((p.Headshots || 0) / p.Kills * 100) : 0;
     const adr = rounds.length > 0 ? Math.round((p.TotalDamageDealt || 0) / rounds.length) : 0;
@@ -670,7 +665,7 @@ function renderMatchDetail(match) {
     `;
   };
 
-  // --- 回合时间轴（中间行，占满所有列）---
+  // 回合时间轴
   const renderTimeline = () => {
     const cells = [];
     for (let i = 0; i < rounds.length; i++) {
@@ -701,12 +696,12 @@ function renderMatchDetail(match) {
   return `
     <!-- 顶部比分 -->
     <div class="score-panel">
-      <div class="team-label"><span class="team-dot ct"></span>Counter-Terrorists</div>
+      <div class="team-label"><span class="team-dot ct"></span>TEAM A</div>
       <div style="text-align:center;">
         <div class="big-score"><span class="ct">${ctScore}</span><span class="sep">:</span><span class="t">${tScore}</span></div>
         <div class="match-subtitle">${getMapName(match.MapName)} · ${rounds.length} ${_('rounds')} · ${match.StartTime || match.timestamp || ''}</div>
       </div>
-      <div class="team-label" style="justify-content:flex-end;">Terrorists<span class="team-dot t"></span></div>
+      <div class="team-label" style="justify-content:flex-end;">TEAM B<span class="team-dot t"></span></div>
     </div>
 
     <!-- 大表格 -->
@@ -715,7 +710,7 @@ function renderMatchDetail(match) {
         <tbody>
           <!-- CT 队伍标题 -->
           <tr class="team-label-row team-label-ct">
-            <td colspan="${totalCols}" style="padding:10px 12px;background:rgba(59,130,246,0.16);color:#93c5fd;font-weight:700;font-size:13px;letter-spacing:1px;border-top:1px solid rgba(59,130,246,0.3);">◉ Counter-Terrorists (CT)</td>
+            <td colspan="${totalCols}" style="padding:10px 12px;background:rgba(59,130,246,0.16);color:#93c5fd;font-weight:700;font-size:13px;letter-spacing:1px;border-top:1px solid rgba(59,130,246,0.3);">◉ TEAM A</td>
           </tr>
           <!-- CT 列标签（重复表头，确保 T 区域也能看到 KDA 等列）-->
           <tr class="repeat-header">
@@ -742,7 +737,7 @@ function renderMatchDetail(match) {
           <tr class="team-row-sep"><td colspan="${totalCols}"></td></tr>
           <!-- T 队伍标题 -->
           <tr class="team-label-row team-label-t">
-            <td colspan="${totalCols}" style="padding:10px 12px;background:rgba(239,68,68,0.16);color:#fca5a5;font-weight:700;font-size:13px;letter-spacing:1px;border-top:1px solid rgba(239,68,68,0.3);">◉ Terrorists (T)</td>
+            <td colspan="${totalCols}" style="padding:10px 12px;background:rgba(239,68,68,0.16);color:#fca5a5;font-weight:700;font-size:13px;letter-spacing:1px;border-top:1px solid rgba(239,68,68,0.3);">◉ TEAM B</td>
           </tr>
           <!-- T 列标签 -->
           <tr class="repeat-header">
@@ -774,9 +769,7 @@ function escapeHtml(s) {
   })[ch]);
 }
 
-/* ============================================================
-   语言切换 & 导航
-   ============================================================ */
+// 导航
 function setLang(lang) {
   state.lang = lang;
   render();
@@ -808,9 +801,9 @@ async function openMatch(idx) {
   }
 }
 
-/* ============================================================
-   数据加载（拉取摘要列表）
-   ============================================================ */
+
+// 数据加载（拉取摘要列表）
+
 async function loadMatches() {
   const app = document.getElementById('app');
   app.innerHTML = renderHeader() + `<div class="loading"><div class="spinner"></div>${_('loading')}</div>`;
