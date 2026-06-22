@@ -399,6 +399,129 @@
       line-height: 1.7;
     }
     .footer-info strong { color: var(--text-secondary); }
+
+    /* 回合详情弹窗 */
+    .round-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+    }
+    .modal-content {
+      position: relative;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: rgba(124, 58, 237, 0.15);
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h3 {
+      margin: 0;
+      font-size: 16px;
+      color: var(--text-primary);
+    }
+    .modal-close {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .modal-close:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--lose-red);
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+    .modal-body {
+      padding: 16px 20px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .detail-event {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px dashed var(--border);
+      font-size: 13px;
+    }
+    .detail-event:last-child {
+      border-bottom: none;
+    }
+    .detail-time {
+      color: var(--text-muted);
+      font-size: 11px;
+      min-width: 45px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .detail-attacker {
+      color: #4ade80;
+      font-weight: 600;
+      min-width: 80px;
+    }
+    .detail-weapon {
+      color: #fbbf24;
+      font-size: 12px;
+      flex: 1;
+    }
+    .detail-headshot {
+      color: var(--lose-red);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .detail-victim {
+      color: #f87171;
+      min-width: 80px;
+      text-align: right;
+    }
+    .detail-bomb {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px dashed var(--border);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .detail-bomb:last-child {
+      border-bottom: none;
+    }
+    .detail-empty {
+      color: var(--text-muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 20px 0;
+    }
   </style>
 </head>
 <body>
@@ -412,7 +535,8 @@ const state = {
   lang: 'zh',
   currentMatch: null,
   currentMatchFilename: null,
-  matches: [] // 从 /api/matches 获取的摘要列表 (含 filename)
+  matches: [],
+  playerTeamMap: {} // 玩家名字 -> 队伍 ('CT' | 'T')
 };
 
 // 地图英文名中文名 映射
@@ -442,6 +566,66 @@ const MAP_NAMES = {
 function getMapName(key) {
   if (!key) return 'Unknown';
   return MAP_NAMES[key.toLowerCase()] || key;
+}
+
+const WEAPON_NAMES = {
+  'glock': 'Glock-18',
+  'hkp2000': 'P2000',
+  'usp_silencer': 'USP-S',
+  'p250': 'P250',
+  'cz75a': 'CZ75-Auto',
+  'fiveseven': 'Five-SeveN',
+  'tec9': 'Tec-9',
+  'elite': '双持贝瑞塔',
+  'deagle': '沙漠之鹰',
+  'revolver': 'R8 左轮',
+  'taser': '电击枪',
+  'mac10': 'MAC-10',
+  'mp9': 'MP9',
+  'mp7': 'MP7',
+  'mp5sd': 'MP5-SD',
+  'ump45': 'UMP-45',
+  'p90': 'P90',
+  'bizon': 'PP 野牛',
+  'ak47': 'AK-47',
+  'galilar': 'Galil AR',
+  'famas': 'FAMAS',
+  'm4a1': 'M4A4',
+  'm4a1_silencer': 'M4A1-S 消音',
+  'aug': 'AUG',
+  'sg556': 'SG553',
+  'ssg08': 'SSG08 鸟狙',
+  'awp': 'AWP',
+  'g3sg1': 'G3SG1',
+  'scar20': 'SCAR20',
+  'nova': 'Nova',
+  'xm1014': 'XM1014',
+  'mag7': 'MAG-7',
+  'sawedoff': '截短霰弹枪',
+  'm249': 'M249',
+  'negev': '内格夫',
+  'hegrenade': '高爆手雷',
+  'flashbang': '闪光弹',
+  'smokegrenade': '烟雾弹',
+  'molotov': '燃烧瓶',
+  'incgrenade': '燃烧弹',
+  'decoy': '诱饵弹',
+  'c4': 'C4 炸弹',
+  'knife': '匕首',
+  'knife_t': '匕首',
+  'bayonet': '刺刀',
+  '蝴蝶刀': '蝴蝶刀',
+  'm9': 'M9 刺刀',
+  'karambit': '爪子刀',
+  'flip': '折叠刀',
+  'gut': '折刀',
+  'gut刀': '折刀',
+  'kusama': 'Kusama'
+};
+
+function getWeaponName(key) {
+  if (!key) return '';
+  return WEAPON_NAMES[key.toLowerCase()] || key;
 }
 
 const i18n = {
@@ -613,6 +797,14 @@ function renderMatchDetail(match) {
     else if (team === 'T') tPlayers.push(p);
   }
 
+  // 构建玩家名字 -> 队伍 映射
+  state.playerTeamMap = {};
+  for (const p of uniquePlayers) {
+    if (p.Name) {
+      state.playerTeamMap[p.Name.toLowerCase()] = (p.InitialTeam || p.TeamKey || '').toUpperCase();
+    }
+  }
+
   // 找换边点：优先插件锚点 SideSwapped，否则用回合号规则
   let firstSwapIndex = -1;
   let swapByRule = false;
@@ -676,7 +868,9 @@ function renderMatchDetail(match) {
       const initialSide = (swapped && w) ? (w === 'CT' ? 'T' : 'CT') : w;
       const cls = initialSide === 'CT' ? 'ct' : 't';
       const title = `Round ${rNum} - ${initialSide || '?'} win`;
-      cells.push(`<span class="round-dot ${cls}" title="${title}">${rNum}</span>`);
+      const events = r.Events || [];
+      const killCount = events.filter(e => e.Type === 'death').length;
+      cells.push(`<span class="round-dot ${cls}" title="${title}" onclick="showRoundDetail(${i})" style="cursor:pointer;">${rNum}</span>`);
     }
     if (firstSwapIndex >= 0 && firstSwapIndex < cells.length) {
       const label = swapByRule
@@ -760,6 +954,18 @@ function renderMatchDetail(match) {
         </tbody>
       </table>
     </div>
+
+    <!-- 回合详情弹窗 -->
+    <div id="round-detail-modal" class="round-modal" style="display:none;">
+      <div class="modal-overlay" onclick="closeRoundDetail()"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-round-title">回合详情</h3>
+          <button class="modal-close" onclick="closeRoundDetail()">X</button>
+        </div>
+        <div id="modal-round-content" class="modal-body"></div>
+      </div>
+    </div>
   `;
 }
 
@@ -767,6 +973,66 @@ function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
+}
+
+function showRoundDetail(idx) {
+  const round = state.currentMatch?.Rounds?.[idx];
+  if (!round) return;
+
+  const rNum = round.RoundNumber || (idx + 1);
+  const winner = round.Winner === 'CT' ? 'TEAM A' : round.Winner === 'T' ? 'TEAM B' : '???';
+  const events = round.Events || [];
+
+  document.getElementById('modal-round-title').textContent = `R${rNum} - ${winner} 胜`;
+
+  const deaths = events.filter(e => e.Type === 'death');
+  const bombs = events.filter(e => e.Type === 'bomb_planted' || e.Type === 'bomb_defused');
+
+  let html = '';
+
+  if (deaths.length > 0) {
+    deaths.forEach(e => {
+      const weaponName = getWeaponName(e.Weapon);
+      const attackerTeam = state.playerTeamMap[(e.Attacker || '').toLowerCase()] || '';
+      const victimTeam = state.playerTeamMap[(e.Victim || '').toLowerCase()] || '';
+      const attackerColor = attackerTeam === 'CT' ? 'var(--ct-color)' : (attackerTeam === 'T' ? 'var(--t-color)' : 'var(--text-secondary)');
+      const victimColor = victimTeam === 'CT' ? 'var(--ct-color)' : (victimTeam === 'T' ? 'var(--t-color)' : 'var(--text-secondary)');
+      html += `
+        <div class="detail-event">
+          <span class="detail-time">${e.Time.toFixed(1)}s</span>
+          <span style="color:${attackerColor};font-weight:600;">${escapeHtml(e.Attacker || 'Unknown')}</span>
+          <span class="detail-weapon">${escapeHtml(weaponName)}${e.Headshot ? ' (爆头)' : ''}</span>
+          <span style="color:${victimColor};">${escapeHtml(e.Victim || 'Unknown')}</span>
+        </div>
+      `;
+    });
+  }
+
+  if (bombs.length > 0) {
+    bombs.forEach(e => {
+      const isPlant = e.Type === 'bomb_planted';
+      const playerTeam = state.playerTeamMap[(e.Player || '').toLowerCase()] || '';
+      const playerColor = playerTeam === 'CT' ? 'var(--ct-color)' : (playerTeam === 'T' ? 'var(--t-color)' : 'var(--text-secondary)');
+      html += `
+        <div class="detail-bomb">
+          <span class="detail-time">${e.Time.toFixed(1)}s</span>
+          <span>${isPlant ? '放置C4炸弹' : '拆除C4炸弹'}</span>
+          <span style="color:${playerColor};font-weight:600;">${escapeHtml(e.Player || 'Unknown')}</span>
+        </div>
+      `;
+    });
+  }
+
+  if (html === '') {
+    html = '<div class="detail-empty">本回合无击杀记录</div>';
+  }
+
+  document.getElementById('modal-round-content').innerHTML = html;
+  document.getElementById('round-detail-modal').style.display = 'flex';
+}
+
+function closeRoundDetail() {
+  document.getElementById('round-detail-modal').style.display = 'none';
 }
 
 // 导航
