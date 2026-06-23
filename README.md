@@ -31,7 +31,7 @@
 CS2 对局统计是一款 Counter-Strike 2 对局统计记录与网页查看工具。它可以自动记录对局数据，并提供美观的网页界面来查看对局历史和详细的玩家统计数据。
 
 > **注意：** 本插件是 [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) 项目的扩展插件。
-
+本项目的Web页面已停止维护，请下载安装最新[CS2MatchStats对局统计查看器](https://github.com/TGP258/CS2MatchStatsElectron)
 ---
 
 ## 功能特点
